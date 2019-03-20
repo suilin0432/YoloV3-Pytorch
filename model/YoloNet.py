@@ -26,7 +26,7 @@ class YoloNet(nn.Module):
         self.convolutionalSet1 = self.convolutionSetBuild([512, 1024], darknetFilters[-1])
         self.DBL1 = self.makeDBL(512, 1024, 3)
         # 输出就是 y1
-        self.yoloConv1 = nn.Conv2d(1024, yoloChannel1)
+        self.yoloConv1 = nn.Conv2d(1024, yoloChannel1, kernel_size=1, stride=1, padding=0, bias=True)
 
         # yolo output2
         self.DBL_DOWN1 = self.makeDBL(512, 256, 1)
@@ -35,7 +35,7 @@ class YoloNet(nn.Module):
         self.convolutionalSet2 = self.convolutionSetBuild([256, 512], darknetFilters[-2] + 256)
         self.DBL2 = self.makeDBL(256, 512, 3)
         # 输出就是 y2
-        self.yoloConv2 = nn.Conv2d(512, yoloChannel2)
+        self.yoloConv2 = nn.Conv2d(512, yoloChannel2, kernel_size=1, stride=1, padding=0, bias=True)
         # yolo output3
         self.DBL_DOWN2 = self.makeDBL(256, 128, 1)
         self.Upsample2 = nn.Upsample(scale_factor=2, mode="nearest")
@@ -43,7 +43,7 @@ class YoloNet(nn.Module):
         self.convolutionalSet3 = self.convolutionSetBuild([128, 256], darknetFilters[-3] + 128)
         self.DBL3 = self.makeDBL(128, 256, 3)
         # 输出就是y3
-        self.yoloConv3 = nn.Conv2d(256, yoloChannel3)
+        self.yoloConv3 = nn.Conv2d(256, yoloChannel3, kernel_size=1, stride=1, padding=0, bias=True)
 
     def makeDBL(self, inDim, outDim, kernelSize):
         pad = (kernelSize - 1) // 2 if kernelSize else 0
@@ -82,7 +82,11 @@ class YoloNet(nn.Module):
         # 将output1 ouput2 output3 的结构进行合并
         # 现在是 batchsize, anchorNums*(5+classesNum), height, width
         # 要合并为 batchsize, anchorNums * height * width, (5+classesNum)
-        # prediction = prediction_concat(output1, output2, output3)
-        # return prediction
 
-        return output1, output2, output3
+        prediction = prediction_concat(output1, output2, output3)
+        return prediction
+
+        # return output1, output2, output3
+
+    def load_weight(self):
+        pass

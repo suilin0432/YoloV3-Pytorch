@@ -89,7 +89,7 @@ class DarkNet(nn.Module):
         self.inplanes = planes[1]
         # 开始进行ResUnit的构建
         for i in range(0, blocks):
-            layers.append("residual_{}".format(i), ResUnit(self.inplanes, planes))
+            layers.append(("residual_{}".format(i), ResUnit(self.inplanes, planes)))
         return nn.Sequential(OrderedDict(layers))
 
     def forward(self, x):

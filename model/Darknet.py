@@ -100,8 +100,8 @@ class DarkNet(nn.Module):
         x = self.layer2(x)
         # 后面三个取出来之后给Yolo环节进行使用
         out3 = self.layer3(x)
-        out4 = self.layer4(x)
-        out5 = self.layer5(x)
+        out4 = self.layer4(out3)
+        out5 = self.layer5(out4)
         return out3, out4, out5
 
 def darknet21(pretrained, **kwargs):

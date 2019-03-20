@@ -82,8 +82,8 @@ class YoloNet(nn.Module):
         # 将output1 ouput2 output3 的结构进行合并
         # 现在是 batchsize, anchorNums*(5+classesNum), height, width
         # 要合并为 batchsize, anchorNums * height * width, (5+classesNum)
-
-        prediction = prediction_concat(output1, output2, output3)
+        # 并且在其中会进行 各个点的sigmoid、等变换操作
+        prediction = prediction_concat(output1, output2, output3, self.config["yolo"]["anchors"], self.config["yolo"]["classes"], self.config["img_h"], self.config["img_w"])
         return prediction
 
         # return output1, output2, output3

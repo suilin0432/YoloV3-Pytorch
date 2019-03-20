@@ -111,4 +111,15 @@ def darknet21(pretrained, **kwargs):
         if isinstance(pretrained, str):
             model.load_state_dict(torch.load(pretrained))
         else:
-            raise Exception()
+            raise Exception("darknet21 need the right pretrained path. got [{}]".format(pretrained))
+    return model
+
+def darknet53(pretrained, **kwargs):
+    # 构建darknet21模型
+    model = DarkNet([1,2,8,8,4])
+    if pretrained:
+        if isinstance(pretrained, str):
+            model.load_state_dict(torch.load(pretrained))
+        else:
+            raise Exception("darknet53 need the right pretrained path. got [{}]".format(pretrained))
+    return model

@@ -1,6 +1,6 @@
 *.weights
-./data
-./output/*
+data
+output/*
 *.pth
-./checkpoints/*
-./test
+checkpoints/*
+test

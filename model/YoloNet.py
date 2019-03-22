@@ -88,5 +88,78 @@ class YoloNet(nn.Module):
 
         # return output1, output2, output3
 
-    def load_weight(self):
-        pass
+    def load_darknet_weights(self, weights_path):
+        import numpy as np
+        #Open the weights file
+        fp = open(weights_path, "rb")
+        header = np.fromfile(fp, dtype=np.int32, count=5)   # First five are header values
+        # Needed to write header when saving weights
+        weights = np.fromfile(fp, dtype=np.float32)         # The rest are weights
+        print ("total len weights = ", weights.shape)
+        fp.close()
+
+        ptr = 0
+        all_dict = self.state_dict()
+        all_keys = self.state_dict().keys()
+        print (all_keys)
+        last_bn_weight = None
+        last_conv = None
+        for i, (k, v) in enumerate(all_dict.items()):
+            if 'bn' in k:
+                if 'weight' in k:
+                    last_bn_weight = v
+                elif 'bias' in k:
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("bn_bias: ", ptr, num_b, k)
+                    ptr += num_b
+                    # weight
+                    v = last_bn_weight
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("bn_weight: ", ptr, num_b, k)
+                    ptr += num_b
+                    last_bn_weight = None
+                elif 'running_mean' in k:
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("bn_mean: ", ptr, num_b, k)
+                    ptr += num_b
+                elif 'running_var' in k:
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("bn_var: ", ptr, num_b, k)
+                    ptr += num_b
+                    # conv
+                    v = last_conv
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("conv wight: ", ptr, num_b, k)
+                    ptr += num_b
+                    last_conv = None
+                else:
+                    raise Exception("Error for bn")
+            elif 'conv' in k:
+                if 'weight' in k:
+                    last_conv = v
+                else:
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("conv bias: ", ptr, num_b, k)
+                    ptr += num_b
+                    # conv
+                    v = last_conv
+                    num_b = v.numel()
+                    vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
+                    v.copy_(vv)
+                    print ("conv wight: ", ptr, num_b, k)
+                    ptr += num_b
+                    last_conv = None
+        print("Total ptr = ", ptr)
+        print("real size = ", weights.shape)

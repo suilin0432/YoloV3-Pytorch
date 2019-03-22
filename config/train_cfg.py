@@ -14,7 +14,10 @@ TRAIN_PARAMS = {
     "img_h": 416,
     "img_w": 416,
     "parallels": [0],
-    "pretrain_snapshot": "../weights/official_yolov3_weights_pytorch.pth",
+    "pretrain_snapshot": "./weights/official_yolov3_weights_pytorch.pth",
+    "input_path": "./data/train/train.txt",
+    "output_path": "./checkpoints/",
+    "use_cuda": True,
 }
 
 """
@@ -31,6 +34,8 @@ TRAIN_PARAMS = {
     img_w: 输入宽
     parrallels: 可并行gpu
     pretrain_snapshot: 预训练模型路径(这个是整体的模型的预训练数据)
-    
+    input_path: 记录所有训练数据的文件的路径
+    output_path: 记录了训练权重保存的路径
+    use_cuda: 是否使用cuda
     
 """

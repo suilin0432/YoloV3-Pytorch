@@ -67,6 +67,7 @@ class YoloNet(nn.Module):
         convolutionOutput1 = self.convolutionalSet1(x0)
         output1 = self.DBL1(convolutionOutput1)
         output1 = self.yoloConv1(output1)
+
         convolutionOutput2 = self.DBL_DOWN1(convolutionOutput1)
         convolutionOutput2 = self.Upsample1(convolutionOutput2)
         convolutionOutput2 = torch.cat([convolutionOutput2, x1], 1)
@@ -95,13 +96,13 @@ class YoloNet(nn.Module):
         header = np.fromfile(fp, dtype=np.int32, count=5)   # First five are header values
         # Needed to write header when saving weights
         weights = np.fromfile(fp, dtype=np.float32)         # The rest are weights
-        print ("total len weights = ", weights.shape)
+        # print ("total len weights = ", weights.shape)
         fp.close()
 
         ptr = 0
         all_dict = self.state_dict()
         all_keys = self.state_dict().keys()
-        print (all_keys)
+        # print (all_keys)
         last_bn_weight = None
         last_conv = None
         for i, (k, v) in enumerate(all_dict.items()):
@@ -112,34 +113,34 @@ class YoloNet(nn.Module):
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("bn_bias: ", ptr, num_b, k)
+                    # print ("bn_bias: ", ptr, num_b, k)
                     ptr += num_b
                     # weight
                     v = last_bn_weight
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("bn_weight: ", ptr, num_b, k)
+                    # print ("bn_weight: ", ptr, num_b, k)
                     ptr += num_b
                     last_bn_weight = None
                 elif 'running_mean' in k:
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("bn_mean: ", ptr, num_b, k)
+                    # print ("bn_mean: ", ptr, num_b, k)
                     ptr += num_b
                 elif 'running_var' in k:
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("bn_var: ", ptr, num_b, k)
+                    # print ("bn_var: ", ptr, num_b, k)
                     ptr += num_b
                     # conv
                     v = last_conv
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("conv wight: ", ptr, num_b, k)
+                    # print ("conv wight: ", ptr, num_b, k)
                     ptr += num_b
                     last_conv = None
                 else:
@@ -151,15 +152,15 @@ class YoloNet(nn.Module):
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("conv bias: ", ptr, num_b, k)
+                    # print ("conv bias: ", ptr, num_b, k)
                     ptr += num_b
                     # conv
                     v = last_conv
                     num_b = v.numel()
                     vv = torch.from_numpy(weights[ptr:ptr + num_b]).view_as(v)
                     v.copy_(vv)
-                    print ("conv wight: ", ptr, num_b, k)
+                    # print ("conv wight: ", ptr, num_b, k)
                     ptr += num_b
                     last_conv = None
-        print("Total ptr = ", ptr)
-        print("real size = ", weights.shape)
+        # print("Total ptr = ", ptr)
+        # print("real size = ", weights.shape)

@@ -20,7 +20,6 @@ def prediction_concat(output1, output2, output3, anchors, classes, height, width
     output1 = outputDeform(output1, anchorNum1, classes, height, width, 32)
     output2 = outputDeform(output2, anchorNum2, classes, height, width, 16)
     output3 = outputDeform(output3, anchorNum3, classes, height, width, 8)
-
     # 然后将三者进行合并 在dim = 1进行合并
     prediction = torch.cat([output1, output2, output3], 1)
 
@@ -52,12 +51,12 @@ def detection_img_input_convert(img, targetSize):
     scale_w = target_w / width
     scale_h = target_h / height
     minScale = min(scale_h, scale_w)
-    after_w = int(width) * minScale
-    after_h = int(height) * minScale
+    after_w = int(width * minScale)
+    after_h = int(height * minScale)
     pad_w = target_w - after_w
     pad_h = target_h - after_h
-    pad = ((pad_h//2, pad_h - pad_h//2), (pad_w//2, pad_w - pad_w//2))
-    img = cv2.resize(img, (after_w, after_h))
+    pad = ((pad_h//2, pad_h - pad_h//2), (pad_w//2, pad_w - pad_w//2), (0,0))
+    img = cv2.resize(img, (after_w, after_h),interpolation = cv2.INTER_CUBIC)
     img = np.pad(img, pad, "constant", constant_values=128)
     # 转变图片为torch格式
     img = img[:, :, ::-1].copy()
@@ -76,11 +75,12 @@ def detection_anchors(prediction, CUDA, gridSize, anchors):
     grid = torch.cat([grid1, grid2, grid3], 1)
     prediction[...,0:2] += grid
     # 重复anchors
-    anchors1 = anchorsRepeat(anchors[0], gridSize[0])
-    anchors2 = anchorsRepeat(anchors[1], gridSize[1])
-    anchors3 = anchorsRepeat(anchors[2], gridSize[2])
+    anchors1 = anchorsRepeat(anchors[0], gridSize[0], 32)
+    anchors2 = anchorsRepeat(anchors[1], gridSize[1], 16)
+    anchors3 = anchorsRepeat(anchors[2], gridSize[2], 8)
     anchors_ = torch.cat([anchors1, anchors2, anchors3], 1)
 
+    prediction[...,2:4] = torch.exp(prediction[...,2:4])
     prediction[...,2:4] *= anchors_
 
     newPrediction = torch.zeros(prediction[...,0:7].shape)
@@ -103,8 +103,9 @@ def detection_anchors(prediction, CUDA, gridSize, anchors):
     mul = torch.cat([mul1, mul2, mul3], 1)
 
     newPrediction[...,0:4] *= mul
+
     # 进行NMS处理
-    newPrediction = NMS(newPrediction, conf_threshold=0.5, nms_threshold=0.4)
+    newPrediction = NMS(newPrediction, conf_threshold=0.8, nms_threshold=0.5)
 
     return newPrediction
 
@@ -121,32 +122,30 @@ def gridshedGenerate(CUDA, gridSize, numAnchor):
     x_y_offset = torch.cat((x_offset, y_offset), 1).repeat(1, numAnchor).view(-1, 2).unsqueeze(0)
     return x_y_offset
 
-def anchorsRepeat(anchor, gridSize):
+def anchorsRepeat(anchor, gridSize, scale):
+    anchor = anchor / scale
     anchor = anchor.repeat(gridSize*gridSize, 1).unsqueeze(0)
     return anchor
 
-def NMS(prediction, conf_threshold = 0.5, nms_threshold = 0.4):
+def NMS(prediction, conf_threshold = 0.5, nms_threshold = 0.5):
     # PS: 长或宽小于0 的应该过滤掉吧
 
     # 首先过滤所有没有超过conf_threshold的项
     # 要对每个batch进行单独的操作以维持每个batch的形状
+
+    # 改变 中心xy, 宽高 为 左上xy 右下xy 的格式
+    b1_x1, b1_y1 = prediction[..., 0] - prediction[..., 2] / 2, prediction[..., 1] - prediction[..., 3] / 2
+    b1_x2, b1_y2 = prediction[..., 0] + prediction[..., 2] / 2, prediction[..., 1] + prediction[..., 3] / 2
+    prediction[..., 0] = b1_x1
+    prediction[..., 1] = b1_y1
+    prediction[..., 2] = b1_x2
+    prediction[..., 3] = b1_y2
     totalPrediction = []
     for index in range(prediction.size(0)):
         batchPrediction = []
         pre = prediction[index]
         preHas = (pre[...,4] >= conf_threshold).squeeze()
         pre = pre[preHas]
-        # 如果没有合格的那么跳过到下一个batch中
-        if not pre.size(0):
-            continue
-        preHas = (pre[..., 2] >= 0.0).squeeze()
-        pre = pre[preHas]
-        if not pre.size(0):
-            continue
-        preHas = (pre[..., 3] >=0.0).squeeze()
-        pre = pre[preHas]
-        if not pre.size(0):
-            continue
 
         # 获取所有出现过的类别编号
         unique_labels = pre[:, -1].cpu().unique()
@@ -161,6 +160,7 @@ def NMS(prediction, conf_threshold = 0.5, nms_threshold = 0.4):
             while preClass.size(0):
                 # 添加当前类别当前分数最高的框
                 max_detections.append(preClass[0].unsqueeze(0))
+                # print(max_detections)
                 # 如果只剩下当前这一个的时候直接终端就可以了
                 if len(preClass) == 1:
                     break
@@ -172,7 +172,12 @@ def NMS(prediction, conf_threshold = 0.5, nms_threshold = 0.4):
             # max_detections = torch.cat(max_detections).data
             # print(max_detections.shape)
             batchPrediction.extend(max_detections)
+        if len(batchPrediction):
+            batchPrediction = torch.cat(batchPrediction, 1)
         totalPrediction.append(batchPrediction)
+    # exit()
+    if len(totalPrediction[0]):
+        totalPrediction = torch.cat(totalPrediction, 1)
     return totalPrediction
 
 
@@ -182,10 +187,9 @@ def bbox_iou(bbox1, bbox2):
     b1_x2, b1_y2 = bbox1[:, 0] + bbox1[:, 2] / 2, bbox1[:, 1] + bbox1[:, 3] / 2
     b2_x1, b2_y1 = bbox2[:, 0] - bbox2[:, 2] / 2, bbox2[:, 1] - bbox2[:, 3] / 2
     b2_x2, b2_y2 = bbox2[:, 0] + bbox2[:, 2] / 2, bbox2[:, 1] + bbox2[:, 3] / 2
-
     # 进行重叠区域的计算
     overlap_x1 = torch.max(b1_x1, b2_x1)
-    overlap_x2 = torch.min(b1_x1, b2_x1)
+    overlap_x2 = torch.min(b1_x2, b2_x2)
     overlap_y1 = torch.max(b1_y1, b2_y1)
     overlap_y2 = torch.min(b1_y2, b2_y2)
 
@@ -193,18 +197,16 @@ def bbox_iou(bbox1, bbox2):
 
     b1_area = (b1_x2 - b1_x1 + 1) * (b1_y2 - b1_y1 + 1)
     b2_area = (b2_x2 - b2_x1 + 1) * (b2_y2 - b2_y1 + 1)
-
     iou = area / (b1_area + b2_area - area + 1e-16)
+    # print(b2_x1, b2_y1, b2_x2, b2_y2, bbox2[:, 0], bbox2[:, 2], bbox2[:, 1], bbox2[:, 3])
+    # print("sd", b1_x1, b1_y1, b1_x2, b1_y2, bbox1[:, 0], bbox1[:, 2], bbox1[:, 1], bbox1[:, 3])
+    # print(area, b1_area, b2_area,iou)
+    # exit()
     return iou
 
 def boxes_change(prediction, imgShape, target):
-    # 首先将prediction变为 左上、右下
-    boxes = torch.Tensor(prediction.shape)
-    boxes[..., 4:] = prediction[..., 4:]
-    boxes[..., 0] = prediction[:, 0] - prediction[:, 2] / 2
-    boxes[..., 1] = prediction[:, 1] - prediction[:, 3] / 2
-    boxes[..., 2] = prediction[:, 0] + prediction[:, 2] / 2
-    boxes[..., 3] = prediction[:, 1] + prediction[:, 3] / 2
+    # 不用变换图像格式了前面变过了
+    prediction = prediction.view(-1,7)
     # 进行prediction的框的变换，变换到原来图片的尺度之下
     height, width = imgShape
     target_h, target_w = target
@@ -213,10 +215,21 @@ def boxes_change(prediction, imgShape, target):
     after_w, after_h = int(width*minScale), int(height * minScale)
     pad_w = target_w - after_w
     pad_h = target_h - after_h
-    prediction[..., [0,2]] -= pad_w/2
-    prediction[..., [1,3]] -= pad_h/2
-
+    # print(prediction[..., [0,2]], pad_w/2)
+    # print(prediction[..., [1,3]], pad_h/2)
+    #  S: 这里的减法和除法有问题
+    minus = torch.Tensor([pad_w/2, pad_h/2, pad_w/2, pad_h/2]).repeat(prediction.size(0),1)
+    # print(boxes)
+    prediction[..., 0:4] -= minus
+    # prediction[..., [0,2]] -= pad_w/2
+    # prediction[..., [1,3]] -= pad_h/2
+    # print(boxes)
     prediction[..., 0:4] /= minScale
+    # print(boxes,"\n///")
 
     # 将超过图片范围的框进行剪裁 到图片内
-    boxes[..., [0, 2]] = torch.clamp(boxes[..., [0, 2]], min=0.0, )
+    # print(height, width)
+    prediction[..., [0, 2]] = torch.clamp(prediction[..., [0, 2]], 0.0, width)
+    prediction[..., [1, 3]] = torch.clamp(prediction[..., [1, 3]], 0.0, height)
+    # print(prediction)
+    return prediction

@@ -34,7 +34,7 @@ anchors = cfg["yolo"]["anchors"]
 anchors = torch.Tensor(anchors)
 colors = pkl.load(open("pallete", "rb"))
 # 加载网络
-net = YoloNet(config=cfg, isTraining=True)
+net = YoloNet(config=cfg, isTraining=False)
 # net = Darknet("./yolov3.cfg")
 is_training = False
 net.train(is_training)

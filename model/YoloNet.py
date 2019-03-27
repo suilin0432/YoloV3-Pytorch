@@ -5,7 +5,7 @@ from util.modelChoose import backboneChoose
 from util.util import *
 
 class YoloNet(nn.Module):
-    def __init__(self, config, isTraining = True):
+    def __init__(self, config, isTraining = False):
         super(YoloNet, self).__init__()
         self.config = config
         self.isTraining = isTraining
@@ -80,12 +80,16 @@ class YoloNet(nn.Module):
         convolutionOutput3 = self.convolutionalSet3(convolutionOutput3)
         output3 = self.DBL3(convolutionOutput3)
         output3 = self.yoloConv3(output3)
-        # 将output1 ouput2 output3 的结构进行合并
-        # 现在是 batchsize, anchorNums*(5+classesNum), height, width
-        # 要合并为 batchsize, anchorNums * height * width, (5+classesNum)
-        # 并且在其中会进行 各个点的sigmoid、等变换操作
-        prediction = prediction_concat(output1, output2, output3, self.config["yolo"]["anchors"], self.config["yolo"]["classes"], self.config["img_h"], self.config["img_w"])
-        return prediction
+
+        if self.isTraining:
+            return output1, output2, output3
+        else:
+            # 将output1 ouput2 output3 的结构进行合并
+            # 现在是 batchsize, anchorNums*(5+classesNum), height, width
+            # 要合并为 batchsize, anchorNums * height * width, (5+classesNum)
+            # 并且在其中会进行 各个点的sigmoid、等变换操作
+            prediction = prediction_concat(output1, output2, output3, self.config["yolo"]["anchors"], self.config["yolo"]["classes"], self.config["img_h"], self.config["img_w"])
+            return prediction
 
         # return output1, output2, output3
 

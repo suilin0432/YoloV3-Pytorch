@@ -18,6 +18,18 @@ TRAIN_PARAMS = {
     "input_path": "./data/train/train.txt",
     "output_path": "./checkpoints/",
     "use_cuda": True,
+    "epoch": 100,
+    "lr":{
+        "backbone_lr": 0.001,
+        "other_lr": 0.01,
+        "freeze_backbone": False,   #  freeze backbone wegiths to finetune
+        "decay_gamma": 0.1,
+        "decay_step": 20,           #  decay lr in every ? epochs
+    },
+    "optimizer":{
+        "type": "sgd",
+        "weight_decay": 4e-05,
+    }
 }
 
 """
@@ -37,5 +49,6 @@ TRAIN_PARAMS = {
     input_path: 记录所有训练数据的文件的路径
     output_path: 记录了训练权重保存的路径
     use_cuda: 是否使用cuda
+    epoch: 训练的epoch数目
     
 """

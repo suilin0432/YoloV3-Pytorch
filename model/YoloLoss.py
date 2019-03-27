@@ -4,7 +4,7 @@ import numpy as np
 from util.util import bbox_iou
 
 class YoloLoss(nn.Module):
-    def __init__(self, anchors, imgShape, classes, ignoreThreshold):
+    def __init__(self, anchors, imgShape, classes, ignoreThreshold=0.5):
         super(YoloLoss, self).__init__()
         self.anchors = anchors
         self.imgShape = imgShape

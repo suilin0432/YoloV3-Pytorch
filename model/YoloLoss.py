@@ -37,7 +37,7 @@ class YoloLoss(nn.Module):
         w = prediction[..., 2]
         h = prediction[..., 3]
         conf = torch.sigmoid(prediction[..., 4])
-        pred_cls = torch.sigmoid(prediction[..., 5:-1])
+        pred_cls = torch.sigmoid(prediction[..., 5:])
 
         # 获取与GT对应的相关信息进行Loss 的计算
         mask, noobjMask, tx, ty, tw, th, tconf, tcls = self.GTCalculate(targets, scaled_anchors, prediction.size(2), prediction.size(3), self.ignoreThreshold)
@@ -49,8 +49,8 @@ class YoloLoss(nn.Module):
         loss_y = self.BCELoss(y * mask, ty * mask)
         loss_w = self.MSELoss(w * mask, tw * mask)
         loss_h = self.MSELoss(h * mask, th * mask)
-        loss_conf = self.bce_loss(conf * mask, mask) + 0.5 * self.bce_loss(conf * noobjMask, noobjMask * 0.0)
-        loss_cls = self.bce_loss(pred_cls[mask == 1], tcls[mask == 1])
+        loss_conf = self.BCELoss(conf * mask, mask) + 0.5 * self.BCELoss(conf * noobjMask, noobjMask * 0.0)
+        loss_cls = self.BCELoss(pred_cls[mask == 1], tcls[mask == 1])
         loss = self.lambda_xy * (loss_x + loss_y) + self.lambda_wh * (loss_w + loss_h) + self.lambda_class * loss_cls + self.lambda_confidence * loss_conf
         return loss, loss_x.item(), loss_y.item(), loss_w.item(), loss_h.item(), loss_conf.item(), loss_cls.item()
 
@@ -83,10 +83,10 @@ class YoloLoss(nn.Module):
 
                 #开始计算GT框和中心点对应的Iou
                 GT_ = torch.Tensor([0,0, boxW, boxH])
-                ANCHOR_ = np.concatenate((np.zeros(self.numAnchors, 2), scaled_anchors), 1)
-                ANCHOR_ = torch.from_numpy(ANCHOR_)
+                GT_ = GT_.unsqueeze(0)
+                ANCHOR_ = torch.cat((torch.zeros(self.numAnchors, 2), torch.Tensor(scaled_anchors)), 1)
 
-                anchorIoU = bbox(GT_, ANCHOR_)
+                anchorIoU = bbox_iou(GT_, ANCHOR_)
 
                 # 对所有IoU >threshold 的noobjMask赋值为0
                 noobjMask[batch, anchorIoU > 0.5, centerY, centerX] = 0

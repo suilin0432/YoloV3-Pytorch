@@ -41,7 +41,7 @@ class PictureDataLoader(Dataset):
         imgSrc = self.imgSrcList[index % self.length].strip()
 
         img = cv2.imread(imgSrc)
-        print(imgSrc)
+        # print(imgSrc)
         # 进行图片补全变换 PS:因为一定是偶数尺寸 因为要/32 所以不会出错，如果是奇数尺寸会出错的
         height, width = img.shape[:2] #获取读取图片的大小
         target["originHeight"] = height
@@ -63,7 +63,7 @@ class PictureDataLoader(Dataset):
         img = img/255.0
         img = img[:,:,::-1].copy()
         img = img.transpose(2,0,1)
-        print(img.shape)
+        # print(img.shape)
         img = torch.from_numpy(img).float()
 
         target["img"] = img
@@ -93,7 +93,7 @@ class PictureDataLoader(Dataset):
         else:
             empty_label[0:len(labels),:] = labels
         target["label"] = empty_label
-        print(len(target["label"]))
+        # print(len(target["label"]))
         target["imgPath"] = imgSrc
         return target
 

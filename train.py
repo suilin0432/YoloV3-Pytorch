@@ -68,7 +68,7 @@ def _save_checkpoint(state_dict, config, evaluate_func=None):
 if cfg["img_h"] % 32 != 0 or cfg["img_w"] % 32 != 0:
     raise Exception("please set the width and height the numbers which can be divided by 32")
 CUDA = torch.cuda.is_available() and cfg["use_cuda"]
-os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cfg["parallels"])
+os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, cfg["parallels"]))
 logging.basicConfig(level=logging.DEBUG,format="[%(asctime)s %(filename)s] %(message)s")
 anchors = cfg["yolo"]["anchors"]
 imgShape = (cfg["img_h"], cfg["img_w"])
@@ -77,7 +77,7 @@ ignoreThreshold = 0.5
 epoches = cfg["epoch"]
 backbone_pretrained = cfg["model_params"]["backbone_pretrained"]
 pretrain_snapshot = cfg["pretrain_snapshot"]
-config["global_step"] = config.get("start_step", 0)
+cfg["global_step"] = cfg.get("start_step", 0)
 # DataLoader
 dataloader = DataLoader(
     PictureDataLoader(cfg["input_path"], (416, 416)),
@@ -105,15 +105,18 @@ if CUDA:
 if pretrain_snapshot:
     logging.info("Load pretrained weights from {}".format(cfg["pretrain_snapshot"]))
     state_dict = torch.load(cfg["pretrain_snapshot"])
-    net.load_state_dict(state_dict)
+    SS = net.state_dict()
+    for i, j in zip(SS.keys(), state_dict.keys()):
+        SS[i] = state_dict[j]
+    net.load_state_dict(SS)
 
 # 设置yolo_loss
 yolo_losses = []
 for i in range(3):
-    yolo_losses.append(YoloLoss(cfg["yolo"]["anchors"][i], cfg["yolo"]["classes"], (cfg["img_w"], cfg["img_h"]), ignoreThreshold))
+    yolo_losses.append(YoloLoss(cfg["yolo"]["anchors"][i], (cfg["img_w"], cfg["img_h"]), cfg["yolo"]["classes"], ignoreThreshold))
 
 # 开始进行 训练
-logging.log("begin training!")
+logging.info("begin training!")
 for epoch in range(epoches):
     for step, samples in enumerate(dataloader):
         # 读取图片和对应的标签
@@ -136,6 +139,7 @@ for epoch in range(epoches):
         losses = [sum(l) for l in losses]
         loss = losses[0]
         loss.backward()
+        print(losses)
         optimizer.step()
 
         if step > 0 and step % 10 == 0:
@@ -144,7 +148,7 @@ for epoch in range(epoches):
             example_per_second = cfg["batch_size"] / duration
             lr = optimizer.param_groups[0]['lr']
             logging.info(
-                "epoch [%.3d] iter = %d loss = %.2f example/sec = %.3f lr = %.5f " %
+                "epoch [%.3d] iter = %dloss = %.2f example/sec = %.3f lr = %.5f " %
                 (epoch, step, _loss, example_per_second, lr)
             )
             for i, name in enumerate(losses_name):
